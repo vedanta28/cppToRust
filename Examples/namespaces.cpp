@@ -1,0 +1,25 @@
+#include <iostream>
+
+using namespace std;
+
+
+
+namespace myapp {
+    // int x = 10;
+    int x = 5;
+    namespace xd {
+        namespace tl {
+
+        }
+        void tr() {cout << "Inside"; }
+    }
+    void pr () {cout << "Hello"; }
+}
+
+
+int main() {
+    // cout << myapp::x;
+    myapp::pr();
+    myapp::xd::tr();
+
+}

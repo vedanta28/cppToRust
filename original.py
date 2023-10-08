@@ -4,6 +4,70 @@ from dist.CPP14ParserVisitor import CPP14ParserVisitor
 from Utils import *
 
 
+def expressionVisitor(self, ctx: ParserRuleContext):
+    self.visit(ctx.getChild(0))
+    childCount = ctx.getChildCount()
+    if childCount > 1:
+        for i in range(1, childCount, 2):
+            self.rustCode += " " + ctx.getChild(i).getText() + " "
+            self.visit(ctx.getChild(i + 1))
+
+
+def singleParameterFunctionHandling(ctx: CPP14Parser.SimpleDeclarationContext):
+    if ctx.declSpecifierSeq() is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0) is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier() is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier() is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier().theTypeName() is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier().theTypeName().className() is not None \
+            and ctx.initDeclaratorList() is not None \
+            and ctx.initDeclaratorList().initDeclarator(0) is not None \
+            and ctx.initDeclaratorList().initDeclarator(0).declarator() is not None \
+            and ctx.initDeclaratorList().initDeclarator(0).declarator().pointerDeclarator() is not None \
+            and ctx.initDeclaratorList().initDeclarator(0).declarator().pointerDeclarator().noPointerDeclarator() is not None \
+            and ctx.initDeclaratorList().initDeclarator(0).declarator().pointerDeclarator().noPointerDeclarator().declaratorid() is None:
+        return True
+
+    return False
+
+# declarator id for differentiation
+
+
+def pointerHandling(ctx: CPP14Parser.MemberdeclarationContext):
+    if ctx.memberDeclaratorList() is not None \
+            and ctx.memberDeclaratorList().memberDeclarator(0) is not None \
+            and ctx.memberDeclaratorList().memberDeclarator(0).declarator() is not None \
+            and ctx.memberDeclaratorList().memberDeclarator(0).declarator().pointerDeclarator() is not None \
+            and ctx.memberDeclaratorList().memberDeclarator(0).declarator().pointerDeclarator().pointerOperator(0) is not None:
+        return True
+
+    return False
+
+
+def getFunctionName(ctx: CPP14Parser.FunctionDefinitionContext):
+    if ctx.declarator() is not None \
+            and ctx.declarator().pointerDeclarator() is not None \
+            and ctx.declarator().pointerDeclarator().noPointerDeclarator() is not None \
+            and ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator() is not None \
+            and ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid() is not None:
+        return ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid().getText()
+
+    return None
+
+
+def getFunctionReturnType(ctx: CPP14Parser.FunctionDefinitionContext):
+    if ctx.declSpecifierSeq() is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0) is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier() is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is not None \
+            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier() is not None:
+
+        return ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier().getText()
+
+    return None
+
+
 class CPPtoRustConverter(CPP14ParserVisitor):
     def __init__(self):
         # output
@@ -30,14 +94,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
         # Handling declaration of objects belongs to classes in declared in the file
         self.classSet = set()
-
-        # Handling templates 
-        self.currentTemplateParameters = ""
-        self.isThisATemplateDeclaration = False
-
-        #Handling namespaces
-        # self.isThisANameSpaceDeclaration = False
-        self.namespaceDepth = 0 # This keeps the present depth in a nested namespace.
 
     def convert(self, tree):
         self.visit(tree)
@@ -266,9 +322,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitClassSpecifier(self, ctx: CPP14Parser.ClassSpecifierContext):
         nonAttributes = []
-        self.rustCode += "#[derive(Default)]\n"
+        self.rustCode += "#[derive(Default)]"
         self.rustCode += "pub "
-        wasThisATemplatedClass = self.isThisATemplateDeclaration
         self.visit(ctx.classHead())
         self.rustCode += " {\n"
         if ctx.memberSpecification() is not None:
@@ -287,10 +342,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         if len(nonAttributes) > 0:
             className = ctx.classHead().classHeadName().className()
             self.classSet.add(className.getText())
-            self.isThisATemplateDeclaration = wasThisATemplatedClass
             self.rustCode += "impl "
-            if self.isThisATemplateDeclaration:
-                self.rustCode += self.currentTemplateParameters
             self.visit(className)
             self.rustCode += " {\n"
             for i in nonAttributes:
@@ -429,9 +481,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
     def visitClassName(self, ctx: CPP14Parser.ClassNameContext):
         if ctx.Identifier() is not None:
             self.rustCode += " " + ctx.Identifier().getText() + " "
-            if self.isThisATemplateDeclaration:
-                self.rustCode += self.currentTemplateParameters
-            self.isThisATemplateDeclaration = False
         else:
             self.visitChildren(ctx)
 
@@ -476,10 +525,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         if ctx.Ellipsis() is not None:
             self.rustCode += " ... "
         self.visit(ctx.idExpression())
-        if self.isThisATemplateDeclaration:
-            self.rustCode += self.currentTemplateParameters
-            self.currentTemplateParameters=""
-            self.isThisATemplateDeclaration=False
 
     def visitIdExpression(self, ctx: CPP14Parser.IdExpressionContext):
         return super().visitIdExpression(ctx)
@@ -697,6 +742,10 @@ class CPPtoRustConverter(CPP14ParserVisitor):
     def visitInitDeclarator(self, ctx: CPP14Parser.InitDeclaratorContext):
         return super().visitInitDeclarator(ctx)
 
+    def visitDeclarator(self, ctx: CPP14Parser.DeclaratorContext):
+        # self.rustCode += " let "
+        return super().visitDeclarator(ctx)
+
     def visitTrailingReturnType(self, ctx: CPP14Parser.TrailingReturnTypeContext):
         self.rustCode += " -> "
         self.visit(ctx.trailingTypeSpecifierSeq())
@@ -758,10 +807,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitFunctionDefinition(self, ctx: CPP14Parser.FunctionDefinitionContext):
 
-        if self.namespaceDepth > 0:
-            self.rustCode += "pub fn "
-        else:
-            self.rustCode += "fn "
+        self.rustCode += "fn "
 
         functionName = getFunctionName(ctx)
         if functionName is None:
@@ -1069,38 +1115,19 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitTemplateDeclaration(self, ctx: CPP14Parser.TemplateDeclarationContext):
         self.rustCode += "// Templates are not yet supported for conversion\n"
-        self.isThisATemplateDeclaration = True
-        self.currentTemplateParameters += "< "
+        self.rustCode += " template < "
         self.visit(ctx.templateparameterList())
-        self.currentTemplateParameters += " > "
-
-        if ctx.declaration().functionDefinition() is not None:
-            self.visit(ctx.declaration().functionDefinition())
-        else: # other template types
-            self.visit(ctx.declaration())
-
-        self.isThisATemplateDeclaration = False
+        self.rustCode += " > "
+        self.visit(ctx.declaration())
 
     def visitTemplateparameterList(self, ctx: CPP14Parser.TemplateparameterListContext):
-        # to consider, recursive template definitions
-        self.visit(ctx.getChild(0))
-        childCount = ctx.getChildCount()
-        if childCount > 1:
-            for i in range(1, childCount, 2):
-                self.currentTemplateParameters += " " + ctx.getChild(i).getText() + " "
-                self.visit(ctx.getChild(i + 1))
+        expressionVisitor(self, ctx)
 
     def visitTemplateParameter(self, ctx: CPP14Parser.TemplateParameterContext):
-        if ctx.typeParameter() is not None: 
-            self.visit(ctx.typeParameter())
-        else: # parameter declaration
-            None
-            # not handled yet
-            # return super().visitTemplateParameter(ctx)
+        return super().visitTemplateParameter(ctx)
 
     def visitTypeParameter(self, ctx: CPP14Parser.TypeParameterContext):
-        self.currentTemplateParameters += ctx.Identifier().getText() 
-        # return super().visitTypeParameter(ctx)
+        return super().visitTypeParameter(ctx)
 
     def visitExplicitInstantiation(self, ctx: CPP14Parser.ExplicitInstantiationContext):
         self.rustCode += "// Templates are not yet supported for conversion\n"
@@ -1128,16 +1155,10 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.visit(ctx.declaration())
 
     def visitNamespaceDefinition(self, ctx: CPP14Parser.NamespaceDefinitionContext):
-        self.rustCode += "// Variables in namespaces are partically supported....\n"
+        self.rustCode += "// Namespaces are yet to supported! Currently copying them as it is....\n"
         if ctx.Inline() is not None:
             self.rustCode += "#[inline]\n"
-        if self.namespaceDepth > 0:
-            self.rustCode += "pub mod "
-        else:
-            self.rustCode += " mod "
-        self.namespaceDepth += 1
-
-        self.isThisANameSpaceDeclaration = True
+        self.rustCode += " namespace "
 
         if ctx.Identifier() is not None:
             self.rustCode += " " + ctx.Identifier().getText() + " "
@@ -1145,11 +1166,9 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode += " " + ctx.originalNamespaceName().getText() + " "
 
         self.rustCode += "{\n"
-        # if ctx.namespaceBody() is not None:
-        #     self.visit(ctx.namespaceBody())
-        self.visitChildren(ctx)
+        if ctx.namespaceBody() is not None:
+            self.visit(ctx.namespaceBody())
         self.rustCode += "}\n"
-        self.namespaceDepth -= 1
 
     def visitAttributeDeclaration(self, ctx: CPP14Parser.AttributeDeclarationContext):
         self.visitChildren(ctx)
@@ -1368,67 +1387,3 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitClassOrDeclType(self, ctx: CPP14Parser.ClassOrDeclTypeContext):
         return super().visitClassOrDeclType(ctx)
-
-def expressionVisitor(self, ctx: ParserRuleContext):
-    self.visit(ctx.getChild(0))
-    childCount = ctx.getChildCount()
-    if childCount > 1:
-        for i in range(1, childCount, 2):
-            self.rustCode += " " + ctx.getChild(i).getText() + " "
-            self.visit(ctx.getChild(i + 1))
-
-
-def singleParameterFunctionHandling(ctx: CPP14Parser.SimpleDeclarationContext):
-    if ctx.declSpecifierSeq() is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0) is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier() is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier() is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier().theTypeName() is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier().theTypeName().className() is not None \
-            and ctx.initDeclaratorList() is not None \
-            and ctx.initDeclaratorList().initDeclarator(0) is not None \
-            and ctx.initDeclaratorList().initDeclarator(0).declarator() is not None \
-            and ctx.initDeclaratorList().initDeclarator(0).declarator().pointerDeclarator() is not None \
-            and ctx.initDeclaratorList().initDeclarator(0).declarator().pointerDeclarator().noPointerDeclarator() is not None \
-            and ctx.initDeclaratorList().initDeclarator(0).declarator().pointerDeclarator().noPointerDeclarator().declaratorid() is None:
-        return True
-
-    return False
-
-# declarator id for differentiation
-
-def pointerHandling(ctx: CPP14Parser.MemberdeclarationContext):
-    if ctx.memberDeclaratorList() is not None \
-            and ctx.memberDeclaratorList().memberDeclarator(0) is not None \
-            and ctx.memberDeclaratorList().memberDeclarator(0).declarator() is not None \
-            and ctx.memberDeclaratorList().memberDeclarator(0).declarator().pointerDeclarator() is not None \
-            and ctx.memberDeclaratorList().memberDeclarator(0).declarator().pointerDeclarator().pointerOperator(0) is not None:
-        return True
-
-    return False
-
-
-def getFunctionName(ctx: CPP14Parser.FunctionDefinitionContext):
-    if ctx.declarator() is not None \
-            and ctx.declarator().pointerDeclarator() is not None \
-            and ctx.declarator().pointerDeclarator().noPointerDeclarator() is not None \
-            and ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator() is not None \
-            and ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid() is not None:
-        return ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid().getText()
-
-    return None
-
-
-def getFunctionReturnType(ctx: CPP14Parser.FunctionDefinitionContext):
-    if ctx.declSpecifierSeq() is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0) is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier() is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is not None \
-            and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier() is not None:
-
-        return ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier().getText()
-
-    return None
-
-
