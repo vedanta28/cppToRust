@@ -162,6 +162,9 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         return super().visitAbstractDeclarator(ctx)
 
     def visitTypeSpecifier(self, ctx: CPP14Parser.TypeSpecifierContext):
+        # print("arnav")
+        # if ctx.enumSpecifier() is not None:
+        #    print(ctx.enumSpecifier().enumHead().enumkey().getText())
         return super().visitTypeSpecifier(ctx)
 
     def visitTrailingTypeSpecifier(self, ctx: CPP14Parser.TrailingTypeSpecifierContext):
@@ -227,6 +230,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.visitChildren(ctx)
 
     def visitElaboratedTypeSpecifier(self, ctx: CPP14Parser.ElaboratedTypeSpecifierContext):
+
+       # Don't know what this means yet.
 
         if ctx.Enum() is not None:
             self.rustCode += " enum "
@@ -420,7 +425,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         return super().visitCvqualifierseq(ctx)
 
     def visitNestedNameSpecifier(self, ctx: CPP14Parser.NestedNameSpecifierContext):
-        self.rustCode += "// Nested name Specifiers are yet to supported! Currently copying them as it is!\n"
         self.rustCode += " " + ctx.getText() + " "
 
     def visitTheTypeName(self, ctx: CPP14Parser.TheTypeNameContext):
@@ -441,12 +445,33 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitEnumName(self, ctx: CPP14Parser.EnumNameContext):
         self.rustCode += " " + ctx.Identifier().getText() + " "
+    
+    def visitEnumSpecifier(self, ctx:CPP14Parser.EnumSpecifierContext):
+        # self.rustCode += " " + ctx.getText() + " "
+        return self.visitChildren(ctx)
+    
+    def visitEnumHead(self, ctx:CPP14Parser.EnumHeadContext):
+        self.rustCode += " " + ctx.enumkey().getText() + " " + ctx.Identifier().getText() + " "
+        return self.visitChildren(ctx)
+    
+    def visitEnumeratorList(self, ctx:CPP14Parser.EnumeratorListContext):
+        # self.rustCode += " {\n " + ctx.getText() + " \n} "
+        self.rustCode += " {\n "
+        self.visitChildren(ctx)
+        self.rustCode += " } "
+        return
+    
+    def visitEnumeratorDefinition(self, ctx:CPP14Parser.EnumeratorDefinitionContext):
+        # self.rustCode += " " + ctx.Identifier().getText() + " "
+        self.rustCode += ctx.enumerator().getText() + " = " 
+        self.visitChildren(ctx)
+        self.rustCode += ",\n"
 
     def visitTypedefName(self, ctx: CPP14Parser.TypedefNameContext):
         self.rustCode += " " + ctx.Identifier().getText() + " "
 
     def visitNamespaceName(self, ctx: CPP14Parser.NamespaceNameContext):
-        self.rustCode += " " + ctx.getText() + " "
+        self.rustCode += " " + ctx.getText() + "::*"
 
     def visitDecltypeSpecifier(self, ctx: CPP14Parser.DecltypeSpecifierContext):
         self.rustCode += " " + ctx.getText() + " "
@@ -720,10 +745,9 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         self.rustCode += ";\n"
 
     def visitUsingDirective(self, ctx: CPP14Parser.UsingDirectiveContext):
-        self.rustCode += "// Using Namespace directives are not yet supported in this transpiler... Copying as it is\n"
         if ctx.attributeSpecifierSeq() is not None:
             self.visit(ctx.attributeSpecifierSeq())
-        self.rustCode += "// using namespace"
+        self.rustCode += "use "
         if ctx.nestedNameSpecifier() is not None:
             self.visit(ctx.nestedNameSpecifier())
         self.visit(ctx.namespaceName())
@@ -753,8 +777,9 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode += "// Rust does not support unscoped enum types, make sure you add a scope to your enum\n"
 
     def visitEnumbase(self, ctx: CPP14Parser.EnumbaseContext):
-        self.rustCode += ":"
-        self.visit(ctx.typeSpecifierSeq())
+        None
+        # self.rustCode += ":"
+        # self.visit(ctx.typeSpecifierSeq())
 
     def visitFunctionDefinition(self, ctx: CPP14Parser.FunctionDefinitionContext):
 
@@ -1137,11 +1162,10 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode += " mod "
         self.namespaceDepth += 1
 
-        self.isThisANameSpaceDeclaration = True
-
         if ctx.Identifier() is not None:
             self.rustCode += " " + ctx.Identifier().getText() + " "
         elif ctx.originalNamespaceName() is not None:
+            print(ctx.originalNamespaceName().getText())
             self.rustCode += " " + ctx.originalNamespaceName().getText() + " "
 
         self.rustCode += "{\n"
