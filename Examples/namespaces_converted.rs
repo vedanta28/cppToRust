@@ -1,22 +1,22 @@
 // Using Namespace directives are not yet supported in this transpiler... Copying as it is
-// using namespace std ;
- mod  myapp {
-let mut  x : i32  = 5;
-pub mod  xd {
-pub mod  tl {
+use std::*;
+// Variables in namespaces are partically supported....
+mod myapp {
+    // Variables in namespaces are partically supported....
+    pub mod xd {
+        // Variables in namespaces are partically supported....
+        pub mod tl {}
+        pub fn tr() {
+            println!("Inside");
+        }
+    }
+    pub fn pr() {
+        println!("Hello");
+    }
 }
-pub fn  tr  (  ) { 
- println! ("Inside");
-} 
+fn main() {
+    myapp::pr();
+    // Using Namespace directives are not yet supported in this transpiler... Copying as it is
+    use myapp::xd::*;
+    myapp::xd::tr();
 }
-pub fn  pr  (  ) { 
- println! ("Hello");
-} 
-}
-fn  main  (  ) { 
- myapp // Nested name Specifiers are yet to supported! Currently copying them as it is!
- ::  pr  (  ) ;
-// Nested name Specifiers are yet to supported! Currently copying them as it is!
- myapp::  xd // Nested name Specifiers are yet to supported! Currently copying them as it is!
- ::  tr  (  ) ;
-} 
