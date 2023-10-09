@@ -849,7 +849,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode = codeWithoutClosingBrace + structReturnCode + "}\n"
             self.isThisAConstructorCall = False
 
-        if usesScopeResolution is not None:
+        if usesScopeResolution is True:
             self.rustCode += "}\n" 
             self.currentClassName = oldCurrentClassName
 
