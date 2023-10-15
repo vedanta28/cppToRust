@@ -1,28 +1,25 @@
-// Templates are not yet supported for conversion
+#![allow(warnings, unused)]
+// Templates are not yet fully supported for conversion
 #[derive(Default)]
-pub  struct  Array < T >  {
- ptr :*mut T ,
- size : i32 ,
- Array  ( mut  arr  [  ] : T  , mut  s : i32  ) ,
- print  (  ) :,
- }
-// Templates are not yet supported for conversion
-fn // Nested name Specifiers are yet to supported! Currently copying them as it is!
- ::  Array < T > < T >  ( mut  arr  [  ] : T  , mut  s : i32  )  -> // Templates are yet to supported! Currently copying them as it is!
- Array<T> { 
- ptr  =  T  s ;
- size  =  s ;
-let mut  i : i32  = 0;
-while  i  <  size {
- ptr  [  i  ]  =  arr [ i ];
- i +=1 ;}
-} 
-// Templates are not yet supported for conversion
-fn // Nested name Specifiers are yet to supported! Currently copying them as it is!
- Array<T>::  print < T >  (  ) { 
-let mut  i : i32  = 0;
-while  i  <  size {
-// Nested name Specifiers are yet to supported! Currently copying them as it is!
- std::  println! (" {}",*(ptr+i));
- i +=1 ;}
-} 
+pub struct TemplExample<T> {
+    obj: T,
+    size: i32,
+}
+// Templates are not yet fully supported for conversion
+impl<T> TemplExample<T> {
+    fn TemplExample(mut o: T, mut s: i32) -> TemplExample<T> {
+        obj = o;
+        size = s;
+        let mut i: i32 = 0;
+        while i < size {
+            obj += o;
+            i += 1;
+        }
+    }
+}
+// Templates are not yet fully supported for conversion
+impl<T> TemplExample<T> {
+    fn print() {
+        std::println!(" {}", obj);
+    }
+}

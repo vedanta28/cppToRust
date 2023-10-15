@@ -1,22 +1,19 @@
 #include "iostream"
-template <typename T> class Array {
+template <typename T> class TemplExample {
 private:
-  T *ptr;
+  T obj;
   int size;
 
 public:
-  Array(T arr[], int s);
+  TemplExample(T arr[], int s);
   void print();
 };
 
-template <typename T> Array<T>::Array(T arr[], int s) {
-  ptr = new T[s];
+template <typename T> TemplExample<T>::TemplExample(T o, int s) {
+  obj = o;
   size = s;
   for (int i = 0; i < size; i++)
-    ptr[i] = arr[i];
+    obj += o;
 }
 
-template <typename T> void Array<T>::print() {
-  for (int i = 0; i < size; i++)
-    std::cout << " " << *(ptr + i);
-}
+template <typename T> void TemplExample<T>::print() { std::cout << " " << obj; }
