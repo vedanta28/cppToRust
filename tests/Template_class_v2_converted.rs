@@ -28,7 +28,8 @@ impl<T> TemplExample<T> {
 }
 // Templates are not yet fully supported for conversion
 impl<T> TemplExample<T> {
-    fn print() {
-        std::println!(" {}", obj);
+    fn print(&mut self) {
+        std::println!(" {}", self.obj);
     }
 }
+fn main() {}

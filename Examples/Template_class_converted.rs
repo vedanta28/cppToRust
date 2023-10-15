@@ -1,15 +1,16 @@
-// Templates are not yet supported for conversion
-#[derive(Default)]
+#![allow(warnings, unused)]
+// Templates are not yet fully supported for conversion
+ #[derive(Default)]
 pub  struct  Array < T >  {
- ptr :*mut T ,
- size : i32 ,
+ ptr :*mut   T ,
+ size :i32,
  }
 impl < T >  Array < T >  {
-pub fn  new  ( mut  arr  [  ] : T  , mut  s : i32  )  -> Array { 
+pub fn  new  ( mut  arr  [  ] :  T  , mut  s :i32 )  -> Array { 
  ptr  =  T  s ;
- self.size  =  s ;
-let mut  i : i32  = 0;
-while  i  <  self.size {
+ size  =  s ;
+let mut  i :i32 = 0 ;
+while  i  <  size {
  ptr  [  i  ]  =  arr [ i ];
  i +=1 ;}
 
@@ -20,10 +21,9 @@ while  i  <  self.size {
 */
 Array{..Default::default()}
 }
-pub fn  print  ( &mut self ) { 
-let mut  i : i32  = 0;
-while  i  <  self.size {
-// Nested name Specifiers are yet to supported! Currently copying them as it is!
+pub fn  print  ( &mut self )  { 
+let mut  i :i32 = 0 ;
+while  i  <  size {
  std::  println! (" {}",*(ptr+i));
  i +=1 ;}
 } 

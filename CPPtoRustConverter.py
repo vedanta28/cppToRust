@@ -25,7 +25,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         self.isFunctionDefinitionInsideClass = False
         self.isClassFunctionParameters = False
         self.isThisAConstructorCall = False
-        self.attributesInCurrentClass = set()
+        self.attributesInClasses = {}
         self.currentFunctionParameters = set()
         self.selfPresent = False
         self.dontVisitNestedNameSpecifier = False
@@ -105,9 +105,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 for i in range(1, childCount, 2):
                     printingText = ctx.getChild(i+1).getText()
                     if ('" ' not in printingText
-                            and self.isFunctionDefinitionInsideClass
-                            and self.selfPresent is False
-                            and printingText in self.attributesInCurrentClass
+                            and self.selfPresent is True
+                            and printingText in self.attributesInClasses.setdefault(self.currentClassName, set())
                             and printingText not in self.currentFunctionParameters
                         ):
                         printingText = "self." + printingText
@@ -219,6 +218,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitClassSpecifier(self, ctx: CPP14Parser.ClassSpecifierContext):
         nonAttributes = []
+        self.currentClassName = ctx.classHead().classHeadName().className().getText()
         self.rustCode += "#[derive(Default)]\n"
         self.rustCode += "pub "
         wasThisATemplatedClass = self.isThisATemplateDeclaration
@@ -249,6 +249,13 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode += " {\n"
             for i in nonAttributes:
                 if i.functionDefinition() is not None:
+                    functionName = getFunctionName(i.functionDefinition())
+                    if self.currentClassName != functionName:
+                        self.attributesInClasses.setdefault(self.currentClassName, set())
+                        self.attributesInClasses[self.currentClassName].add(functionName)
+
+            for i in nonAttributes:
+                if i.functionDefinition() is not None:
                     self.rustCode += "pub "
                     self.isFunctionDefinitionInsideClass = True
                     self.isClassFunctionParameters = True
@@ -259,7 +266,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode += " }\n"
 
         self.currentClassName = ""
-        self.attributesInCurrentClass.clear()
 
     def visitClassHead(self, ctx: CPP14Parser.ClassHeadContext):
         if ctx.Union() is not None:
@@ -341,7 +347,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode += ":"
             self.visit(ctx.constantExpression())
         else:
-            self.attributesInCurrentClass.add(ctx.declarator().getText())
+            self.attributesInClasses.setdefault(self.currentClassName, set())
+            self.attributesInClasses[self.currentClassName].add(ctx.declarator().getText())
             self.visitChildren(ctx)
 
     def visitDeclarator(self, ctx: CPP14Parser.DeclaratorContext):
@@ -478,15 +485,13 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 IdentifierText = "new"
 
             elif (
-                self.isFunctionDefinitionInsideClass
-                and self.selfPresent is False
-                and IdentifierText in self.attributesInCurrentClass
+                self.selfPresent is True
+                and IdentifierText in self.attributesInClasses.setdefault(self.currentClassName,set())
                 and IdentifierText not in self.currentFunctionParameters
             ):
                 IdentifierText = "self." + IdentifierText
 
             self.rustCode += " " + IdentifierText + " "
-            self.selfPresent = False
 
         elif ctx.Tilde() is not None:
             self.rustCode += "// Mostly refers to the destructor function implementation... Need to look at how to implement this...\n"
@@ -509,6 +514,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         if self.isClassFunctionParameters:
             if self.isThisAConstructorCall is not True:
                 self.rustCode += "&mut self"
+                self.selfPresent = True
                 if ctx.parameterDeclarationClause() is not None:
                     self.rustCode += ", "
             self.isClassFunctionParameters = False
@@ -751,6 +757,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         scopedParent = getFunctionScopedParentName(ctx)
         if scopedParent is not None:
             usesScopeResolution = True
+            self.currentClassName = scopedParent.split("<")[0]
+            self.isClassFunctionParameters = True
             self.rustCode += "impl" + self.currentTemplateParameters + " " + scopedParent + "{\n" 
             self.isThisATemplateDeclaration = False
 
@@ -763,12 +771,13 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
         if ctx.declSpecifierSeq() is None and functionName != "" and functionName == self.currentClassName:
             self.isThisAConstructorCall = True
+            returnType = self.currentClassName
         elif scopedParent is not None:
-            parent_name = scopedParent.split("<")[0] # in case of templated parents
-            if returnType is not None and returnType == parent_name and parent_name == functionName:
-                oldCurrentClassName = self.currentClassName
-                self.currentClassName = functionName
+            parent_name = self.currentClassName # in case of templated parents
+            return_type_name = returnType.split("<")[0]
+            if return_type_name is not None and return_type_name == parent_name and parent_name == functionName:
                 self.isThisAConstructorCall = True
+
 
         # adds functionName to the output
         self.dontVisitNestedNameSpecifier = True
@@ -784,7 +793,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.visit(ctx.declSpecifierSeq())
 
         elif self.isThisAConstructorCall:
-            self.rustCode += " -> " + self.currentClassName + " "
+            self.rustCode += " -> " + self.currentClassName + self.currentTemplateParameters + " "
 
         if ctx.virtualSpecifierSeq() is not None:
             self.visit(ctx.virtualSpecifierSeq())
@@ -807,25 +816,18 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
         if usesScopeResolution is True:
             self.rustCode += "}\n" 
-            self.currentClassName = oldCurrentClassName
+            self.isClassFunctionParameters = False
+
+        self.selfPresent = False
 
     def visitDeclSpecifierSeq(self, ctx: CPP14Parser.DeclSpecifierSeqContext):
-        #  [LOOK AT THIS @MITHUN]
-        # if ctx.declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is None:
-        #     return super().visitDeclSpecifierSeq(ctx)
-
-        # simpleType = ctx.declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier()
-        # if simpleType is None:
-        #     return super().visitDeclSpecifierSeq(ctx)
-
         signedNess = True
         lengthSpecifier = None
         dataType = None
         isAuto = False
         self.Std = None
-        print(ctx.getText())
         for i in ctx.declSpecifier():
-            print(i.getText(),end=" ")
+            # print(i.getText(),end=" ")
             if i.getText() == "auto":
                 dataType = "auto"
                 isAuto = True
@@ -1228,7 +1230,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         if ctx.Identifier() is not None:
             self.rustCode += " " + ctx.Identifier().getText() + " "
         elif ctx.originalNamespaceName() is not None:
-            print(ctx.originalNamespaceName().getText())
+            # print(ctx.originalNamespaceName().getText())
             self.rustCode += " " + ctx.originalNamespaceName().getText() + " "
 
         self.rustCode += "{\n"

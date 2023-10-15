@@ -5,9 +5,8 @@ pub struct TemplExample<T> {
     obj: T,
     size: i32,
 }
-// Templates are not yet fully supported for conversion
 impl<T> TemplExample<T> {
-    fn new(mut o: T, mut s: i32) -> TemplExample<T> {
+    pub fn new(mut o: T, mut s: i32) -> TemplExample<T> {
         obj = o;
         size = s;
         let mut i: i32 = 0;
@@ -25,10 +24,8 @@ impl<T> TemplExample<T> {
             ..Default::default()
         }
     }
-}
-// Templates are not yet fully supported for conversion
-impl<T> TemplExample<T> {
-    fn print() {
-        std::println!(" {}", obj);
+    pub fn print(&mut self) {
+        std::println!(" {}", self.obj);
     }
 }
+fn main() {}
