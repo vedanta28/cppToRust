@@ -810,23 +810,22 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.currentClassName = oldCurrentClassName
 
     def visitDeclSpecifierSeq(self, ctx: CPP14Parser.DeclSpecifierSeqContext):
-        if ctx.declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is None:
-            return super().visitDeclSpecifierSeq(ctx)
+        #  [LOOK AT THIS @MITHUN]
+        # if ctx.declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is None:
+        #     return super().visitDeclSpecifierSeq(ctx)
 
-        simpleType = ctx.declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier()
-        if simpleType is None:
-            return super().visitDeclSpecifierSeq(ctx)
+        # simpleType = ctx.declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier()
+        # if simpleType is None:
+        #     return super().visitDeclSpecifierSeq(ctx)
 
         signedNess = True
         lengthSpecifier = None
-<<<<<<< HEAD
-        dataType = ""
-=======
         dataType = None
->>>>>>> master
         isAuto = False
         self.Std = None
+        print(ctx.getText())
         for i in ctx.declSpecifier():
+            print(i.getText(),end=" ")
             if i.getText() == "auto":
                 dataType = "auto"
                 isAuto = True
@@ -841,6 +840,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 elif i.getText() in ["long", "longlong"]:
                     lengthSpecifier = "64"
             elif i.getText() in ["int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t", "uint64_t", "size_t", "bool", "char"]:
+               dataType=i.getText()
                self.Std = i.getText()
         
         if isAuto or dataType is None:
