@@ -1,28 +1,28 @@
+#![allow(warnings, unused)]
 // Templates are not yet supported for conversion
-#[derive(Default)]
+i32#[derive(Default)]
 pub  struct  Array < T >  {
- ptr :*mut T ,
- size : i32 ,
- Array  ( mut  arr  [  ] : T  , mut  s : i32  ) ,
- print  (  ) :,
+ ptr :*muti32 T ,
+ size :i32,
  }
 // Templates are not yet supported for conversion
-fn // Nested name Specifiers are yet to supported! Currently copying them as it is!
- ::  Array < T > < T >  ( mut  arr  [  ] : T  , mut  s : i32  )  -> // Templates are yet to supported! Currently copying them as it is!
+impl< T >  Array<T>{
+fn  Array < T >  ( mut  arr  [  ] :i32 T  , mut  s :i32 )  -> i32// Templates are yet to supported! Currently copying them as it is!
  Array<T> { 
  ptr  =  T  s ;
  size  =  s ;
-let mut  i : i32  = 0;
+let mut  i :i32 = 0 ;
 while  i  <  size {
  ptr  [  i  ]  =  arr [ i ];
  i +=1 ;}
 } 
+}
 // Templates are not yet supported for conversion
-fn // Nested name Specifiers are yet to supported! Currently copying them as it is!
- Array<T>::  print < T >  (  ) { 
-let mut  i : i32  = 0;
+impl< T >  Array<T>{
+fn  print < T >  (  ) i32{ 
+let mut  i :i32 = 0 ;
 while  i  <  size {
-// Nested name Specifiers are yet to supported! Currently copying them as it is!
  std::  println! (" {}",*(ptr+i));
  i +=1 ;}
 } 
+}
