@@ -751,7 +751,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         scopedParent = getFunctionScopedParentName(ctx)
         if scopedParent is not None:
             usesScopeResolution = True
-            self.rustCode += "impl " + scopedParent + "{\n" 
+            self.rustCode += "impl" + self.currentTemplateParameters + " " + scopedParent + "{\n" 
 
         returnType = getFunctionReturnType(ctx)
 
@@ -763,7 +763,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         if ctx.declSpecifierSeq() is None and functionName != "" and functionName == self.currentClassName:
             self.isThisAConstructorCall = True
         else:
-            if returnType is not None and returnType == scopedParent and scopedParent == functionName:
+            parent_name = scopedParent.split("<")[0] # in case of templated parents
+            if returnType is not None and returnType == parent_name and parent_name == functionName:
                 oldCurrentClassName = self.currentClassName
                 self.currentClassName = functionName
                 self.isThisAConstructorCall = True
@@ -781,7 +782,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 self.rustCode += " -> "
             self.visit(ctx.declSpecifierSeq())
 
-        if self.isThisAConstructorCall:
+        elif self.isThisAConstructorCall:
             self.rustCode += " -> " + self.currentClassName + " "
 
         if ctx.virtualSpecifierSeq() is not None:
@@ -1150,6 +1151,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.visit(ctx.declaration())
 
         self.isThisATemplateDeclaration = False
+        self.currentTemplateParameters = ""
 
     def visitTemplateparameterList(self, ctx: CPP14Parser.TemplateparameterListContext):
         # to consider, recursive template definitions
@@ -1489,6 +1491,9 @@ def getFunctionName(ctx: CPP14Parser.FunctionDefinitionContext):
                 and declId.idExpression().qualifiedId() is not None \
                 and declId.idExpression().qualifiedId().unqualifiedId() is not None:
             return declId.idExpression().qualifiedId().unqualifiedId().getText()
+        elif declId.idExpression() is not None \
+                and declId.idExpression().unqualifiedId() is not None:
+            return declId.idExpression().unqualifiedId().getText()
 
     return None
 
