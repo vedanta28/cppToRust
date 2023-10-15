@@ -808,6 +808,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.currentClassName = oldCurrentClassName
 
     def visitDeclSpecifierSeq(self, ctx: CPP14Parser.DeclSpecifierSeqContext):
+        if ctx.declSpecifier(0).typeSpecifier().enumSpecifier() is not None:
+            return super().visitDeclSpecifierSeq(ctx)
         signedNess = True
         lengthSpecifier = None
         dataType = "int"

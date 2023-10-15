@@ -1,6 +1,6 @@
 #![allow(warnings, unused)]
 use std::*;
-fn main() {
+fn main() -> i32 {
     const hello: i32 = 5;
     let mut t = 4;
     let mut x1: char = 'c';
