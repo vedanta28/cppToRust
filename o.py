@@ -7,11 +7,10 @@ from Utils import *
 class CPPtoRustConverter(CPP14ParserVisitor):
     def __init__(self):
         # output
-        self.rustCode = "#![allow(warnings, unused)]\n"
+        self.rustCode = ""
 
         # handling data type conversion
         self.currentTempDataType = ""
-        self.Std = None
 
         # Handling known Function types
         self.currentFunction = ""
@@ -28,7 +27,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         self.attributesInCurrentClass = set()
         self.currentFunctionParameters = set()
         self.selfPresent = False
-        self.dontVisitNestedNameSpecifier = False
 
         # Handling declaration of objects belongs to classes in declared in the file
         self.classSet = set()
@@ -59,7 +57,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
         else:
 
-            LiteralText = ctx.getText() + " "
+            LiteralText = ctx.getText()
 
             if ctx.StringLiteral() is not None and self.currentFunction == "printf":
                 LiteralText = printfReplacer(LiteralText)
@@ -172,10 +170,64 @@ class CPPtoRustConverter(CPP14ParserVisitor):
     def visitTrailingTypeSpecifier(self, ctx: CPP14Parser.TrailingTypeSpecifierContext):
         return super().visitTrailingTypeSpecifier(ctx)
 
-
     def visitSimpleTypeSpecifier(self, ctx: CPP14Parser.SimpleTypeSpecifierContext):
-        self.visitChildren(ctx) # vedanta
-        # return
+
+        # initial assumption
+        # Auto/decltype need no special treatment Rust will automatically take care of it
+        if ctx.Auto() is not None or ctx.decltypeSpecifier() is not None:
+            self.rustCode = " "
+
+        elif (
+            ctx.Char() is not None
+            or ctx.Char16() is not None
+            or ctx.Char32() is not None
+            or ctx.Wchar() is not None
+        ):
+            self.rustCode += " char "
+
+        elif ctx.Bool() is not None:
+            self.rustCode += " bool "
+
+        elif ctx.Float() is not None:
+            self.rustCode += " f32 "
+
+        elif ctx.simpleTypeSignednessModifier() is not None:
+            signednessModifier = ctx.simpleTypeSignednessModifier().getText()
+
+            if signednessModifier == "unsigned":
+                self.currentTempDataType = signednessModifier
+
+        elif (
+            ctx.simpleTypeLengthModifier() is not None
+            and len(ctx.simpleTypeLengthModifier()) > 0
+        ):
+            for i in range(len(ctx.simpleTypeLengthModifier())):
+                self.currentTempDataType += (
+                    " " + ctx.simpleTypeLengthModifier(i).getText()
+                )
+            if self.currentTempDataType[0] == " ":
+                self.currentTempDataType = self.currentTempDataType[1:]
+
+        elif ctx.Double() is not None:
+            if self.currentTempDataType != "":
+                if self.currentTempDataType == "long":
+                    self.rustCode += " f64 "
+                self.currentTempDataType = ""
+            else:
+                self.rustCode += " f32 "
+
+        elif ctx.Int() is not None:
+            correspondingDataType = "i32"
+            if self.currentTempDataType != "":
+                fullDataType = self.currentTempDataType + " int"
+                mappedType = typeMap.get(fullDataType)
+                if mappedType:
+                    correspondingDataType = mappedType
+                self.currentTempDataType = ""
+            self.rustCode += " " + correspondingDataType + " "
+
+        else:
+            self.visitChildren(ctx)
 
     def visitElaboratedTypeSpecifier(self, ctx: CPP14Parser.ElaboratedTypeSpecifierContext):
 
@@ -231,10 +283,9 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 specificationType = type(child)
                 if specificationType == CPP14Parser.MemberdeclarationContext:
                     # means member
-                    isFunctionDeclaration = memberDeclarationIsFuntion(child)
-                    if child.Semi() is not None and not isFunctionDeclaration:
+                    if child.Semi() is not None:
                         self.visit(child)
-                    elif not isFunctionDeclaration:
+                    else:
                         nonAttributes.append(child)
         self.rustCode += " }\n"
 
@@ -381,13 +432,10 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitClassName(self, ctx: CPP14Parser.ClassNameContext):
         if ctx.Identifier() is not None:
-            if self.Std is not None:
-                self.Std = None
-            else:
-                self.rustCode += " " + ctx.Identifier().getText() + " " # ISSUE
-                if self.isThisATemplateDeclaration:
-                    self.rustCode += self.currentTemplateParameters
-                self.isThisATemplateDeclaration = False
+            self.rustCode += " " + ctx.Identifier().getText() + " "
+            if self.isThisATemplateDeclaration:
+                self.rustCode += self.currentTemplateParameters
+            self.isThisATemplateDeclaration = False
         else:
             self.visitChildren(ctx)
 
@@ -497,8 +545,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.visitChildren(ctx)
 
     def visitQualifiedId(self, ctx: CPP14Parser.QualifiedIdContext):
-        if self.dontVisitNestedNameSpecifier is False:
-            self.visit(ctx.nestedNameSpecifier())
+        self.visit(ctx.nestedNameSpecifier())
         if ctx.Template() is not None:
             self.rustCode += " template "
         self.visit(ctx.unqualifiedId())
@@ -614,10 +661,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def simpleDeclarationUtil(self, ctx: CPP14Parser.SelectionStatementContext, initDeclarator: CPP14Parser.InitDeclaratorContext):
         if ctx.declSpecifierSeq() is not None:
-            if ctx.declSpecifierSeq().declSpecifier(0).getText() == "const":
-                self.rustCode += "const"
-            else:
-                self.rustCode += "let mut "
+            self.rustCode += "let mut "
 
         self.visit(initDeclarator.declarator())
 
@@ -629,8 +673,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 if initDeclarator.initializer() is None:
                     self.rustCode += "()"
             else:
-                if ctx.declSpecifierSeq().getText() != "auto":
-                    self.rustCode += ":" # [FUTURE ISSUES 1]
+                self.rustCode += ":"
                 self.visit(ctx.declSpecifierSeq())
             # naive attempt to improve quality
 
@@ -740,43 +783,25 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitFunctionDefinition(self, ctx: CPP14Parser.FunctionDefinitionContext):
 
-        usesScopeResolution: bool = False
-
-        functionName = getFunctionName(ctx)
-        if functionName is None:
-            functionName = ""
-
-        oldCurrentClassName = ""
-        
-        scopedParent = getFunctionScopedParentName(ctx)
-        if scopedParent is not None:
-            usesScopeResolution = True
-            self.rustCode += "impl " + scopedParent + "{\n" 
-
-        returnType = getFunctionReturnType(ctx)
-
         if self.namespaceDepth > 0:
             self.rustCode += "pub fn "
         else:
             self.rustCode += "fn "
 
+        functionName = getFunctionName(ctx)
+        if functionName is None:
+            functionName = ""
+
         if ctx.declSpecifierSeq() is None and functionName != "" and functionName == self.currentClassName:
             self.isThisAConstructorCall = True
-        else:
-            if returnType is not None and returnType == scopedParent and scopedParent == functionName:
-                oldCurrentClassName = self.currentClassName
-                self.currentClassName = functionName
-                self.isThisAConstructorCall = True
 
-        # adds functionName to the output
-        self.dontVisitNestedNameSpecifier = True
         self.visit(ctx.declarator())
-        self.dontVisitNestedNameSpecifier = False
 
         if ctx.attributeSpecifierSeq() is not None:
             self.visit(ctx.attributeSpecifierSeq())
 
-        if ctx.declSpecifierSeq() is not None and functionName != "main" and not self.isThisAConstructorCall:
+        if ctx.declSpecifierSeq() is not None and functionName != "main":
+            returnType = getFunctionReturnType(ctx)
             if returnType is not None and returnType != "void":
                 self.rustCode += " -> "
             self.visit(ctx.declSpecifierSeq())
@@ -803,81 +828,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode = codeWithoutClosingBrace + structReturnCode + "}\n"
             self.isThisAConstructorCall = False
 
-        if usesScopeResolution is True:
-            self.rustCode += "}\n" 
-            self.currentClassName = oldCurrentClassName
-
     def visitDeclSpecifierSeq(self, ctx: CPP14Parser.DeclSpecifierSeqContext):
-        if ctx.declSpecifier(0).typeSpecifier().enumSpecifier() is not None:
-            return super().visitDeclSpecifierSeq(ctx)
-        signedNess = True
-        lengthSpecifier = None
-        dataType = None
-        isAuto = False
-        self.Std = None
-        for i in ctx.declSpecifier():
-            if i.getText() == "auto":
-                dataType = "auto"
-                isAuto = True
-            elif i.getText() == "unsigned":
-                signedNess = False
-            elif i.getText() in ["float", "double"]:
-                dataType = i.getText()
-            elif i.getText() in ["short", "long", "longlong"]:
-                dataType = "int"
-                if i.getText() == "short":
-                    lengthSpecifier = "16"
-                elif i.getText() in ["long", "longlong"]:
-                    lengthSpecifier = "64"
-            elif i.getText() in ["int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t", "uint64_t", "size_t", "bool", "char"]:
-               self.Std = i.getText()
-        
-        if isAuto or dataType is None:
-            self.rustCode += " "
-            return super().visitDeclSpecifierSeq(ctx)
-        # self.rustCode += ": "
-        rustDataType = ""
-        if self.Std is not None:
-            stdConvert = {
-                "int8_t": "i8",
-                "int16_t": "i16",
-                "int32_t": "i32",
-                "int64_t": "i64",
-                "uint8_t": "u8",
-                "uint16_t": "u16",
-                "uint32_t": "u32",
-                "uint64_t": "u64",
-                "size_t": "usize",
-                "bool": "bool",
-                "char": "char"
-            }
-            # self.rustCode += stdConvert[Std]
-            rustDataType += stdConvert[self.Std]
-        else:
-            if signedNess is False:
-                # self.rustCode += "u"
-                rustDataType += "u"
-            else:
-                if dataType in ["int"]:
-                    # self.rustCode += "i"
-                    rustDataType += "i"
-                else:
-                    # self.rustCode += "f"
-                    rustDataType += "f"
-            if lengthSpecifier is not None:
-                # self.rustCode += lengthSpecifier
-                rustDataType += lengthSpecifier
-            else:
-                if dataType == "int":
-                    # self.rustCode += "32"
-                    rustDataType += "32"
-                elif dataType == "float":
-                    # self.rustCode += "32"
-                    rustDataType += "32"
-                elif dataType == "double":
-                    # self.rustCode += "64"
-                    rustDataType += "64"
-        self.rustCode += rustDataType
         return super().visitDeclSpecifierSeq(ctx)
 
     def visitDeclSpecifier(self, ctx: CPP14Parser.DeclSpecifierContext):
@@ -1488,41 +1439,10 @@ def getFunctionName(ctx: CPP14Parser.FunctionDefinitionContext):
             and ctx.declarator().pointerDeclarator().noPointerDeclarator() is not None \
             and ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator() is not None \
             and ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid() is not None:
-        declId = ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid()
-        if declId.idExpression() is not None \
-                and declId.idExpression().qualifiedId() is not None \
-                and declId.idExpression().qualifiedId().unqualifiedId() is not None:
-            return declId.idExpression().qualifiedId().unqualifiedId().getText()
+        return ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid().getText()
 
     return None
 
-def getFunctionScopedParentName(ctx: CPP14Parser.FunctionDefinitionContext):
-    if ctx.declarator() is not None \
-            and ctx.declarator().pointerDeclarator() is not None \
-            and ctx.declarator().pointerDeclarator().noPointerDeclarator() is not None \
-            and ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator() is not None \
-            and ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid() is not None: 
-        decl = ctx.declarator().pointerDeclarator().noPointerDeclarator().noPointerDeclarator().declaratorid()
-        if decl.idExpression() is not None \
-                and decl.idExpression().qualifiedId() is not None \
-                and decl.idExpression().qualifiedId().nestedNameSpecifier() is not None:
-            nested_name_spec = decl.idExpression().qualifiedId().nestedNameSpecifier()
-
-            if nested_name_spec.theTypeName() is not None:
-                return nested_name_spec.theTypeName().getText()
-            
-            elif ctx.declSpecifierSeq() is not None \
-                    and ctx.declSpecifierSeq().declSpecifier(0) is not None \
-                    and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier() is not None \
-                    and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is not None \
-                    and ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier() is not None: 
-                simple_type_specifier = ctx.declSpecifierSeq().declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier()
-                if simple_type_specifier.theTypeName() is not None and simple_type_specifier.theTypeName().className() is not None:
-                    return simple_type_specifier.theTypeName().className().getText()
-
-        return None
-
-    return None
 
 def getFunctionReturnType(ctx: CPP14Parser.FunctionDefinitionContext):
     if ctx.declSpecifierSeq() is not None \
@@ -1535,18 +1455,4 @@ def getFunctionReturnType(ctx: CPP14Parser.FunctionDefinitionContext):
 
     return None
 
-def declaratorHasParameters(ctx: CPP14Parser.DeclaratorContext):
-    if ctx.pointerDeclarator() is not None \
-            and ctx.pointerDeclarator() is not None \
-            and ctx.pointerDeclarator().noPointerDeclarator() is not None \
-            and ctx.pointerDeclarator().noPointerDeclarator().parametersAndQualifiers() is not None:
-        return True
-    return False
 
-def memberDeclarationIsFuntion(ctx: CPP14Parser.MemberdeclarationContext):
-    if ctx.memberDeclaratorList() is not None \
-            and ctx.memberDeclaratorList().memberDeclarator(0) is not None \
-            and ctx.memberDeclaratorList().memberDeclarator(0).declarator() is not None \
-            and declaratorHasParameters(ctx.memberDeclaratorList().memberDeclarator(0).declarator()) is True:
-        return True
-    return False
