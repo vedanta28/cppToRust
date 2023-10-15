@@ -357,7 +357,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             if ctx.nestedNameSpecifier() is not None:
                 self.visit(ctx.nestedNameSpecifier())
 
-            self.rustCode += "*mut"
+            self.rustCode += "*mut "
 
             if ctx.attributeSpecifierSeq() is not None:
                 self.visit(ctx.attributeSpecifierSeq())
@@ -752,6 +752,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         if scopedParent is not None:
             usesScopeResolution = True
             self.rustCode += "impl" + self.currentTemplateParameters + " " + scopedParent + "{\n" 
+            self.isThisATemplateDeclaration = False
 
         returnType = getFunctionReturnType(ctx)
 
@@ -762,7 +763,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
         if ctx.declSpecifierSeq() is None and functionName != "" and functionName == self.currentClassName:
             self.isThisAConstructorCall = True
-        else:
+        elif scopedParent is not None:
             parent_name = scopedParent.split("<")[0] # in case of templated parents
             if returnType is not None and returnType == parent_name and parent_name == functionName:
                 oldCurrentClassName = self.currentClassName
@@ -809,11 +810,16 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.currentClassName = oldCurrentClassName
 
     def visitDeclSpecifierSeq(self, ctx: CPP14Parser.DeclSpecifierSeqContext):
-        if ctx.declSpecifier(0).typeSpecifier().enumSpecifier() is not None:
+        if ctx.declSpecifier(0).typeSpecifier().trailingTypeSpecifier() is None:
             return super().visitDeclSpecifierSeq(ctx)
+
+        simpleType = ctx.declSpecifier(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier()
+        if simpleType is None:
+            return super().visitDeclSpecifierSeq(ctx)
+
         signedNess = True
         lengthSpecifier = None
-        dataType = "int"
+        dataType = ""
         isAuto = False
         self.Std = None
         for i in ctx.declSpecifier():
@@ -821,7 +827,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 isAuto = True
             elif i.getText() == "unsigned":
                 signedNess = False
-            elif i.getText() in ["float", "double"]:
+            elif i.getText() in ["int","float", "double"]:
                 dataType = i.getText()
             elif i.getText() in ["short", "long", "longlong"]:
                 if i.getText() == "short":
@@ -860,7 +866,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 if dataType in ["int"]:
                     # self.rustCode += "i"
                     rustDataType += "i"
-                else:
+                elif dataType != "":
                     # self.rustCode += "f"
                     rustDataType += "f"
             if lengthSpecifier is not None:
@@ -1141,7 +1147,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         self.rustCode += ";\n"
 
     def visitTemplateDeclaration(self, ctx: CPP14Parser.TemplateDeclarationContext):
-        self.rustCode += "// Templates are not yet supported for conversion\n"
+        self.rustCode += "// Templates are not yet fully supported for conversion\n"
         self.isThisATemplateDeclaration = True
         self.currentTemplateParameters += "< "
         self.visit(ctx.templateparameterList())
@@ -1173,6 +1179,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             # return super().visitTemplateParameter(ctx)
 
     def visitTypeParameter(self, ctx: CPP14Parser.TypeParameterContext):
+        if ctx.Typename_() is None:
+            self.rustCode += "\n Generics only allow for types as parameters\n"
         self.currentTemplateParameters += ctx.Identifier().getText() 
         # return super().visitTypeParameter(ctx)
 
