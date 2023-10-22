@@ -384,6 +384,11 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         self.rustCode += " " + ctx.getText() + " "
 
     def visitTheTypeName(self, ctx: CPP14Parser.TheTypeNameContext):
+        if ctx.className() is not None:
+            if self.selfPresent is True and \
+                    self.currentClassName != "" and \
+                    ctx.className().getText() in self.attributesInClasses.setdefault(self.currentClassName, set()):
+                self.rustCode += "self."
         return super().visitTheTypeName(ctx)
 
     def visitClassName(self, ctx: CPP14Parser.ClassNameContext):
