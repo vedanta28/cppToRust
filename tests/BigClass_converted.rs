@@ -163,7 +163,7 @@ impl Car {
         if tempDirection < 1 {
             tempDirection += 4;
         }
-        self.SetDirection(tempDirection);
+        SetDirection(tempDirection);
     }
 }
 fn main() {
