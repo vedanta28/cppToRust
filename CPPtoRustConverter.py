@@ -41,6 +41,30 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         # self.isThisANameSpaceDeclaration = False
         self.namespaceDepth = 0 # This keeps the present depth in a nested namespace.
 
+        #Handling Type Convertions
+        self.conversion_map = {
+            "char": "char",
+            "unsignedchar": "u8",
+            "signedchar": "i8",
+            "shortint": "i16",
+            "unsignedshortint": "u16",
+            "signedint": "i32",
+            "int": "i32",
+            "unsignedint": "u32",
+            "signedlongint": "i64",  # Data model dependent
+            "longint": "i64",  # Data model dependent
+            "unsignedlongint": "u64",  # Data model dependent
+            "signedlonglongint": "i64",
+            "longlongint": "i64",
+            "unsignedlonglongint": "u64",
+            "size_t": "usize",
+            "float": "f32",
+            "double": "f64",
+            "longdouble": "f64",  # Note: f128 was removed in Rust
+            "bool": "bool",
+        }
+
+
     def convert(self, tree):
         self.visit(tree)
         return self.rustCode
@@ -145,12 +169,18 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         if ctx.unaryExpression() is not None:
             self.visit(ctx.unaryExpression())
         else:
+            # print(ctx.getText())
             self.visit(ctx.castExpression())
             self.rustCode += " as "
             self.visit(ctx.theTypeId())
 
     # visiting children
     def visitTheTypeId(self, ctx: CPP14Parser.TheTypeIdContext):
+        # self.rustCode += ctx.theTypeId().getText()
+        if ctx.getText() in self.conversion_map:
+            self.rustCode += self.conversion_map[ctx.getText()]
+        else:
+            self.rustCode += ctx.getText()
         return super().visitTheTypeId(ctx)
 
     # visiting children
@@ -384,11 +414,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         self.rustCode += " " + ctx.getText() + " "
 
     def visitTheTypeName(self, ctx: CPP14Parser.TheTypeNameContext):
-        if ctx.className() is not None:
-            if self.selfPresent is True and \
-                    self.currentClassName != "" and \
-                    ctx.className().getText() in self.attributesInClasses.setdefault(self.currentClassName, set()):
-                self.rustCode += "self."
         return super().visitTheTypeName(ctx)
 
     def visitClassName(self, ctx: CPP14Parser.ClassNameContext):
