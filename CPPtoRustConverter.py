@@ -198,6 +198,78 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         #    print(ctx.enumSpecifier().enumHead().enumkey().getText())
         return super().visitTypeSpecifier(ctx)
 
+    def visitTrailingTypeSpecifierSeq(self, ctx: CPP14Parser.TrailingTypeSpecifierSeqContext):
+        signedNess = True
+        lengthSpecifier = None
+        dataType = None
+        isAuto = False
+        self.Std = None
+        for i in ctx.trailingTypeSpecifier():
+            if i.getText() == "auto":
+                dataType = "auto"
+                isAuto = True
+            elif i.getText() == "unsigned":
+                signedNess = False
+            elif i.getText() in ["int","float", "double"]:
+                dataType = i.getText()
+            elif i.getText() in ["short", "long", "longlong"]:
+                dataType = "int"
+                if i.getText() == "short":
+                    lengthSpecifier = "16"
+                elif i.getText() in ["long", "longlong"]:
+                    lengthSpecifier = "64"
+            elif i.getText() in ["int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t", "uint64_t", "size_t", "bool", "char"]:
+               dataType=i.getText()
+               self.Std = i.getText()
+        
+        if isAuto or dataType is None:
+            self.rustCode += " "
+            return super().visitTrailingTypeSpecifierSeq(ctx)
+        # self.rustCode += ": "
+        rustDataType = ""
+        if self.Std is not None:
+            stdConvert = {
+                "int8_t": "i8",
+                "int16_t": "i16",
+                "int32_t": "i32",
+                "int64_t": "i64",
+                "uint8_t": "u8",
+                "uint16_t": "u16",
+                "uint32_t": "u32",
+                "uint64_t": "u64",
+                "size_t": "usize",
+                "bool": "bool",
+                "char": "char"
+            }
+            # self.rustCode += stdConvert[Std]
+            rustDataType += stdConvert[self.Std]
+        else:
+            if signedNess is False:
+                # self.rustCode += "u"
+                rustDataType += "u"
+            else:
+                if dataType in ["int"]:
+                    # self.rustCode += "i"
+                    rustDataType += "i"
+                elif dataType != "":
+                    # self.rustCode += "f"
+                    rustDataType += "f"
+            if lengthSpecifier is not None:
+                # self.rustCode += lengthSpecifier
+                rustDataType += lengthSpecifier
+            else:
+                if dataType == "int":
+                    # self.rustCode += "32"
+                    rustDataType += "32"
+                elif dataType == "float":
+                    # self.rustCode += "32"
+                    rustDataType += "32"
+                elif dataType == "double":
+                    # self.rustCode += "64"
+                    rustDataType += "64"
+        self.rustCode += rustDataType
+        return super().visitTrailingTypeSpecifierSeq(ctx)
+
     def visitTrailingTypeSpecifier(self, ctx: CPP14Parser.TrailingTypeSpecifierContext):
         return super().visitTrailingTypeSpecifier(ctx)
 
@@ -716,8 +788,9 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         return super().visitInitDeclarator(ctx)
 
     def visitTrailingReturnType(self, ctx: CPP14Parser.TrailingReturnTypeContext):
-        self.rustCode += " -> "
-        self.visit(ctx.trailingTypeSpecifierSeq())
+        if ctx.trailingTypeSpecifierSeq().getText() != "auto":
+            self.rustCode += " -> "
+            self.visit(ctx.trailingTypeSpecifierSeq())
         if ctx.abstractDeclarator() is not None:
             self.visit(ctx.abstractDeclarator())
 
@@ -1248,7 +1321,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.visit(ctx.declaration())
 
     def visitNamespaceDefinition(self, ctx: CPP14Parser.NamespaceDefinitionContext):
-        self.rustCode += "// Variables in namespaces are partically supported....\n"
+        self.rustCode += "// Variables in namespaces are partially supported....\n"
         if ctx.Inline() is not None:
             self.rustCode += "#[inline]\n"
         if self.namespaceDepth > 0:
@@ -1455,8 +1528,43 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode += "self"
             self.selfPresent = True
 
+        elif ctx.lambdaExpression() is not None:
+            # Convert cpp lambda expressions to rust closures
+            self.visit(ctx.lambdaExpression())
         else:
             self.visitChildren(ctx)
+
+    def visitLambdaExpression(self, ctx: CPP14Parser.LambdaExpressionContext):
+        self.visit(ctx.lambdaIntroducer())
+        # closure parameters
+        if ctx.lambdaDeclarator() is not None:
+            self.visit(ctx.lambdaDeclarator())
+        else:
+            self.rustCode += "||"
+        # the closure body
+        self.visit(ctx.compoundStatement())
+
+    def visitLambdaDeclarator(self, ctx: CPP14Parser.LambdaDeclaratorContext):
+        if ctx.lambdaCapture() is not None:
+            self.visit(ctx.lambdaCapture())
+
+    def visitLambdaCapture(self, ctx: CPP14Parser.LambdaCaptureContext):
+        if ctx.captureDefault() is not None:
+            if ctx.captureDefault().Assign() is not None:
+                # implicitly capture by copy
+                self.rustCode += "move "
+
+    def visitLambdaDeclarator(self, ctx: CPP14Parser.LambdaDeclaratorContext):
+        # No need to check for Mutable keyword, since parameters are made mutable by default in the program
+        if ctx.parameterDeclarationClause() is not None:
+            self.rustCode += "|"
+            self.visit(ctx.parameterDeclarationClause())
+            self.rustCode += "|"
+        if ctx.exceptionSpecification() is not None:
+            self.visit(ctx.exceptionSpecification())
+        # todo: handle attributes in future here
+        if ctx.trailingReturnType() is not None:
+            self.visit(ctx.trailingReturnType())
 
     def visitMemInitializerList(self, ctx: CPP14Parser.MemInitializerListContext):
         childCount = ctx.getChildCount()
