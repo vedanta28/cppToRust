@@ -6,10 +6,10 @@ pub  struct  Array < T >  {
  size :i32,
  }
 impl < T >  Array < T >  {
-pub fn  new  ( mut  arr  [  ] :  T  , mut  s :i32 )  -> Array { 
- ptr  =  T  s ;
+pub fn  new  ( mut  arr  [  ] :  T  , mut  s :i32 )  -> Array< T >  { 
+ ptr  =  T  s  as i32;
  size  =  s ;
-let mut  i :i32 = 0 ;
+let mut  i :i32 = 0  as i32;
 while  i  <  size {
  ptr  [  i  ]  =  arr [ i ];
  i +=1 ;}
@@ -22,8 +22,8 @@ while  i  <  size {
 Array{..Default::default()}
 }
 pub fn  print  ( &mut self )  { 
-let mut  i :i32 = 0 ;
-while  i  <  size {
+let mut  i :i32 = 0  as i32;
+while  i  <  self.size {
  std::  println! (" {}",*(ptr+i));
  i +=1 ;}
 } 
