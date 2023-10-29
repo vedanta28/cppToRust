@@ -11,7 +11,7 @@ pub fn  new  ( mut  arr  [  ] :  T  , mut  s :i32 )  -> Array< T >  {
  size  =  s ;
 let mut  i :i32 = 0  as i32;
 while  i  <  size {
- ptr  [  i  ]  =  arr [ i ];
+ ptr  =  arr [ i ];
  i +=1 ;}
 
 /*
