@@ -56,6 +56,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             "unsignedlongint": "u64",  # Data model dependent
             "signedlonglongint": "i64",
             "longlongint": "i64",
+            "longlong": "i64",
             "unsignedlonglongint": "u64",
             "size_t": "usize",
             "float": "f32",
@@ -63,6 +64,10 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             "longdouble": "f64",  # Note: f128 was removed in Rust
             "bool": "bool",
         }
+
+        # Handling Implicit conversion
+        self.leftHandSideDataType = None
+        self.isSimpleAssignment = False
 
 
     def convert(self, tree):
@@ -82,7 +87,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             )
 
         else:
-
             LiteralText = ctx.getText() + " "
 
             if ctx.StringLiteral() is not None and self.currentFunction == "printf":
@@ -744,7 +748,9 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
         if initDeclarator.initializer() is not None:
             self.visit(initDeclarator.initializer())
-
+        if self.isSimpleAssignment and self.leftHandSideDataType is not None:
+            self.rustCode += " as " + self.leftHandSideDataType
+            self.leftHandSideDataType = None
         self.rustCode += ";\n"
 
     def visitSimpleDeclaration(self, ctx: CPP14Parser.SimpleDeclarationContext):
@@ -767,13 +773,17 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
                 declaratorList = ctx.initDeclaratorList()
                 initDeclarator = declaratorList.getChild(0)
+                self.isSimpleAssignment = True
                 self.simpleDeclarationUtil(ctx, initDeclarator)
+                self.isSimpleAssignment = False
 
                 childCount = declaratorList.getChildCount()
                 if childCount > 1:
                     for i in range(1, childCount, 2):
                         initDeclarator = declaratorList.getChild(i+1)
+                        self.isSimpleAssignment = True
                         self.simpleDeclarationUtil(ctx, initDeclarator)
+                        self.isSimpleAssignment = False
 
             elif ctx.declSpecifierSeq() is not None:
                 self.visitChildren(ctx)
@@ -994,6 +1004,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                     # self.rustCode += "64"
                     rustDataType += "64"
         self.rustCode += rustDataType
+        self.leftHandSideDataType = rustDataType
+        # arnav
         return super().visitDeclSpecifierSeq(ctx)
 
     def visitDeclSpecifier(self, ctx: CPP14Parser.DeclSpecifierContext):
@@ -1535,6 +1547,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.visitChildren(ctx)
 
     def visitLambdaExpression(self, ctx: CPP14Parser.LambdaExpressionContext):
+        self.isSimpleAssignment = False
         self.visit(ctx.lambdaIntroducer())
         # closure parameters
         if ctx.lambdaDeclarator() is not None:
