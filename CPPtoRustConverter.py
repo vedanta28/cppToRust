@@ -556,13 +556,15 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 if ctx.parametersAndQualifiers() is not None:
                     self.visit(ctx.parametersAndQualifiers())
                     self.arraySizeDecl[1] += " ] "
-                self.arraySizeDecl[0] += " [ "
                 rustCodeLen = len(self.rustCode)
                 temp = ""
                 if ctx.constantExpression() is not None:
+                    self.arraySizeDecl[0] += " [ "
                     self.visit(ctx.constantExpression())
                     temp = ";" + self.rustCode[rustCodeLen:]
                     self.rustCode = self.rustCode[:rustCodeLen]
+                else :
+                    self.arraySizeDecl[0] = " &["
                 self.arraySizeDecl[1] = temp + "]" + self.arraySizeDecl[1]
         else: 
             self.visit(ctx.noPointerDeclarator())
