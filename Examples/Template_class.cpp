@@ -1,7 +1,7 @@
 #include "iostream"
 template <typename T> class Array {
 private:
-  T *ptr;
+  T **ptr;
   int size;
 
 public:

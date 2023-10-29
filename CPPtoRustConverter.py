@@ -10,7 +10,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         self.rustCode = "#![allow(warnings, unused)]\n"
 
         # handling data type conversion
-        self.currentTempDataType = ""
+        self.isSimpleDecl = False
+        self.arraySizeDecl = ["",""]
         self.Std = None
 
         # Handling known Function types
@@ -314,7 +315,6 @@ class CPPtoRustConverter(CPP14ParserVisitor):
 
     def visitCvQualifier(self, ctx: CPP14Parser.CvQualifierContext):
         # initial assumption
-        # TODO: This is not working properly
         return super().visitCvQualifier(ctx)
 
         if ctx.Const() is not None:
@@ -460,7 +460,8 @@ class CPPtoRustConverter(CPP14ParserVisitor):
     def visitDeclarator(self, ctx: CPP14Parser.DeclaratorContext):
         return super().visitDeclarator(ctx)
 
-    def visitPointerDeclarator(self, ctx: CPP14Parser.PointerDeclaratorContext):
+    def visitPointerDeclarator(self, ctx: CPP14Parser):
+        self.arraySizeDecl = ["",""]
         if len(ctx.pointerOperator()) > 0:
             self.rustCode += "// Handling Pointers...\n"
         self.visitChildren(ctx)
@@ -550,7 +551,18 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             self.rustCode += " ( "
             self.visit(ctx.pointerDeclarator())
             self.rustCode += " ) "
-        else:
+        elif self.isSimpleDecl is True: # array declaration
+                self.visit(ctx.noPointerDeclarator())
+                if ctx.parametersAndQualifiers() is not None:
+                    self.visit(ctx.parametersAndQualifiers())
+                    self.arraySizeDecl[1] += " ] "
+                if ctx.constantExpression() is not None:
+                    self.arraySizeDecl[0] += " [ "
+                    rustCodeLen = len(self.rustCode)
+                    self.visit(ctx.constantExpression())
+                    self.arraySizeDecl[1] = ";" + self.rustCode[rustCodeLen:] + "]" + self.arraySizeDecl[1]
+                    self.rustCode = self.rustCode[:rustCodeLen]
+        else: 
             self.visit(ctx.noPointerDeclarator())
             if ctx.parametersAndQualifiers() is not None:
                 self.visit(ctx.parametersAndQualifiers())
@@ -696,6 +708,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
     def visitThrowExpression(self, ctx: CPP14Parser.ThrowExpressionContext):
         # initial assumption
         self.rustCode += "// Need to use third party crates to handle try/catch throw statements\n"
+        self.rustCode += "// It is recommended to take advantage of Result enums.\n"
         self.rustCode += " throw "
         if ctx.assignmentExpression() is not None:
             self.visit(ctx.assignmentExpression())
@@ -725,6 +738,7 @@ class CPPtoRustConverter(CPP14ParserVisitor):
         return super().visitBlockDeclaration(ctx)
 
     def simpleDeclarationUtil(self, ctx: CPP14Parser.SelectionStatementContext, initDeclarator: CPP14Parser.InitDeclaratorContext):
+        self.isSimpleDecl = True
         if ctx.declSpecifierSeq() is not None:
             if ctx.declSpecifierSeq().declSpecifier(0).getText() == "const":
                 self.rustCode += "const"
@@ -743,20 +757,23 @@ class CPPtoRustConverter(CPP14ParserVisitor):
             else:
                 if ctx.declSpecifierSeq().getText() != "auto":
                     self.rustCode += ":" # [FUTURE ISSUES 1]
+                self.rustCode += self.arraySizeDecl[0] # array declarations
                 self.visit(ctx.declSpecifierSeq())
+                self.rustCode += self.arraySizeDecl[1] # array declarations
             # naive attempt to improve quality
 
         if initDeclarator.initializer() is not None:
+            self.isSimpleAssignment = True
             self.visit(initDeclarator.initializer())
         if self.isSimpleAssignment and self.leftHandSideDataType is not None:
             self.rustCode += " as " + self.leftHandSideDataType
             self.leftHandSideDataType = None
+        self.isSimpleAssignment = False
+        self.isSimpleDecl = False
+        self.arraySizeDecl = ["",""]
         self.rustCode += ";\n"
 
     def visitSimpleDeclaration(self, ctx: CPP14Parser.SimpleDeclarationContext):
-
-        # checking
-
         # for attribute specifiers currently not handling
         if ctx.attributeSpecifierSeq() is not None:
             self.visitChildren(ctx)
@@ -770,20 +787,15 @@ class CPPtoRustConverter(CPP14ParserVisitor):
                 self.rustCode += ";\n"
 
             elif ctx.initDeclaratorList() is not None:
-
                 declaratorList = ctx.initDeclaratorList()
                 initDeclarator = declaratorList.getChild(0)
-                self.isSimpleAssignment = True
                 self.simpleDeclarationUtil(ctx, initDeclarator)
-                self.isSimpleAssignment = False
 
                 childCount = declaratorList.getChildCount()
                 if childCount > 1:
                     for i in range(1, childCount, 2):
                         initDeclarator = declaratorList.getChild(i+1)
-                        self.isSimpleAssignment = True
                         self.simpleDeclarationUtil(ctx, initDeclarator)
-                        self.isSimpleAssignment = False
 
             elif ctx.declSpecifierSeq() is not None:
                 self.visitChildren(ctx)
