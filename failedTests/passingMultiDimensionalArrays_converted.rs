@@ -31,11 +31,34 @@ use UnorderedSet::unordered_set;
 
 #[path = "../libs/String.rs"]
 pub mod String;
-use std::*;
 use String::string;
+fn transpose(mut a: [[i32; 3]; 3], mut n: usize) {
+    let mut i: usize = 0 as usize;
+    while i < n {
+        let mut j: usize = i as usize;
+        while j < n {
+            let mut temp: i32 = a[i as usize][j as usize];
+            a[i as usize][j as usize] = a[j as usize][i as usize];
+            a[j as usize][i as usize] = temp;
+            j += 1;
+        }
+        i += 1;
+    }
+}
+fn print(mut a: [[i32; 3]; 3], mut n: usize) {
+    let mut i: usize = 0 as usize;
+    while i < n {
+        let mut j: usize = 0 as usize;
+        while j < n {
+            print!("{} ", a[i as usize][j as usize]);
+            j += 1;
+        }
+        print!("\n");
+        i += 1;
+    }
+}
 fn main() {
-    let mut x: i32 = 10 as i64 as i32;
-    let mut m: i32 = 0 as i32;
-    let mut c: char = 90 as char;
-    print!("{}\n", c);
+    let mut a: [[i32; 3]; 3] = [(1, 2, 3), (4, 5, 6), (7, 8, 9)];
+    transpose(a, 3);
+    print(a, 3);
 }

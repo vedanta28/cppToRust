@@ -1,13 +1,9 @@
 #include <iostream>
 
-using namespace std;
-
-enum HttpResponse : int {
-  Okay = 200,
-  NotFound = 404,
-  InternalError = 500,
+enum Orientation : int {
+  Clockwise = 1,
+  Anticlockwise = -1,
+  Collinear = 0,
 };
 
-int main() {
-  // cout << HttpResponse::InternalError;
-}
+int main() {}

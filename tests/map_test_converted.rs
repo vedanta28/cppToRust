@@ -34,8 +34,28 @@ pub mod String;
 use std::*;
 use String::string;
 fn main() {
-    let mut x: i32 = 10 as i64 as i32;
-    let mut m: i32 = 0 as i32;
-    let mut c: char = 90 as char;
-    print!("{}\n", c);
+    let mut mp = map::new();
+    let mut vecmp = map::new();
+    let mut v = vector![string::from("a")].clone();
+    vecmp.insert((1, v));
+    if mp.empty() {
+        print!("Set is empty\n");
+    } else {
+        print!("Set is not empty\n");
+    }
+    mp.insert((1, 1));
+    mp.insert((2, 2));
+    print!("Size of mp:{}\n", mp.size());
+    print!("Count of 1 in mp:{}\n", mp.count(1));
+    print!("Count of 3 in mp:{}\n", mp.count(3));
+    mp.erase(1);
+    print!("Size of mp after removing:{}\n", mp.size());
+    let mut mp2 = map::new();
+    mp2.insert((3, 3));
+    mp2.insert((5, 5));
+    mp.swap(&mut mp2);
+    print!("Size of mp after swapping:{}\n", mp.size());
+    print!("Size of mp2 after swapping:{}\n", mp2.size());
+    mp.clear();
+    print!("size of mp after clear{}\n", mp.size());
 }

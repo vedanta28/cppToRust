@@ -31,11 +31,12 @@ use UnorderedSet::unordered_set;
 
 #[path = "../libs/String.rs"]
 pub mod String;
-use std::*;
 use String::string;
 fn main() {
-    let mut x: i32 = 10 as i64 as i32;
-    let mut m: i32 = 0 as i32;
-    let mut c: char = 90 as char;
-    print!("{}\n", c);
+    let mut D: [i32; 20];
+    let mut twoD: [[i32; 30]; 20];
+    let mut threeD: [[[i32; 40]; 30]; 20];
+    let mut y: i32 = 2 as i32;
+    let mut z: i32 = 0;
+    let mut y: [i32; 4] = [1, 2, 3, 4];
 }

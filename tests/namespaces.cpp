@@ -1,18 +1,20 @@
 #include <iostream>
 
-namespace myapp {
-// int x = 10;
-// int x = 5;
-namespace xd {
-namespace tl {}
-void tr() { cout << "Inside"; }
-} // namespace xd
-void pr() { cout << "Hello"; }
+using namespace std;
+
+namespace myapp
+{
+  namespace xd
+  {
+    namespace tl {}
+    void tr() { cout << "Inside\n"; }
+  } // namespace xd
+  void pr() { cout << "Hello\n"; }
 } // namespace myapp
 
-int main() {
-  // cout << myapp::x;
+int main()
+{
   myapp::pr();
   using namespace myapp::xd;
-  myapp::xd::tr();
+  tr();
 }

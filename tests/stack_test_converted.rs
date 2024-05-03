@@ -34,8 +34,29 @@ pub mod String;
 use std::*;
 use String::string;
 fn main() {
-    let mut x: i32 = 10 as i64 as i32;
-    let mut m: i32 = 0 as i32;
-    let mut c: char = 90 as char;
-    print!("{}\n", c);
+    let mut s1 = stack::new().clone();
+    if s1.empty() {
+        print!("Stack is Empty\n");
+    } else {
+        print!("Stack is Non-Empty\n");
+    }
+    s1.push(10);
+    s1.push(20);
+    s1.emplace(20);
+    print!("S1.size() = {}\n", s1.size());
+    while !s1.empty() {
+        print!("{} ", s1.top());
+        s1.pop();
+    }
+    print!("\n");
+    let mut s2 = stack::new().clone();
+    s2 = s1.clone();
+    s1.push(4);
+    print!("Before swap\n");
+    print!(" s1.len() = {}\n", s1.size());
+    print!(" s2.len() = {}\n", s2.size());
+    s1.swap(&mut s2);
+    print!("After swap\n");
+    print!(" s1.len() = {}\n", s1.size());
+    print!(" s2.len() = {}\n", s2.size());
 }

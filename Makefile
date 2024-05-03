@@ -1,7 +1,9 @@
 PY = python3
 TEST_DIR = tests
+FMT_DIR = facebook_codegen_repo_cpp
 RS = rustc
 TEST_FILES = $(wildcard $(TEST_DIR)/*.cpp)
+FMT_FILES = $(wildcard $(FMT_DIR)/*.cpp)
 PARSER = main.py
 
 
@@ -60,4 +62,38 @@ test: $(TEST_FILES)
 	echo "${Blue}\nTotal Tests: $$tests ${Color_Off}\n"; \
 	echo "${Green}\nTests Passed: $$passed${Color_Off}\n"; \
 	echo "${Red}\nTests Failed: $$(($$tests-$$passed))${Color_Off}\n"
+	@rm $(TEST_DIR)/*.tree
+	@rm $(TEST_DIR)/*.pdb
+
+testfmt: $(FMT_FILES)
+	@tests=0; \
+	passed=0; \
+	echo "${Cyan}\n!!! Running the Transpiler on the input files in the test directory ${TEST_DIR}/ !!!${Color_Off}\n"; \
+	for input_file in $^; do \
+		tests=$$(($$tests + 1)); \
+		ofile=$$(echo $$input_file | cut -d "/" -f 2); \
+		root=$$(echo $$ofile |cut -d '.' -f 1); \
+		echo "${Blue}\n~~~> Running the parser on $$input_file ${Color_Off}\n"; \
+		echo ;\
+		$(PY) $(PARSER) "$$input_file";\
+		EXIT_CODE=$$?; \
+		if [ $$EXIT_CODE -ne 0 ]; then \
+			echo "${Red}\n> Parser failed So skipping Rust Formatting\n"; \
+			continue; \
+		fi; \
+		echo "${Green}\n> Parser passed So running Rust Formatting\n"; \
+		rustfmt $(FMT_DIR)/"$$root"_converted.rs; \
+		EXIT_CODE=$$?; \
+		if [ $$EXIT_CODE -ne 0 ]; then \
+			echo "${Red}\n> Rust Compilation failed\n"; \
+			continue; \
+		fi; \
+		echo "${Green}\n> Rust Compilation passed\n"; \
+		passed=$$(($$passed + 1)); \
+	done; \
+	echo "${Cyan}\n!!! Test Results !!!${Color_Off}\n"; \
+	echo "${Blue}\nTotal Tests: $$tests ${Color_Off}\n"; \
+	echo "${Green}\nTests Passed: $$passed${Color_Off}\n"; \
+	echo "${Red}\nTests Failed: $$(($$tests-$$passed))${Color_Off}\n"
+	@rm $(FMT_DIR)/*.tree
 

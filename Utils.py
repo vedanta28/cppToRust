@@ -21,8 +21,8 @@ typeMap = {
 }
 
 knownFunctionMap = {
-    "printf": "println!",
-    "cout": "println!"
+    "printf": "print!",
+    "cout": "print!"
 }
 
 
@@ -58,6 +58,8 @@ def coutHandler(texts):
             else:
                 printingElements.append("{}")
                 nonStringElements.append(printingText)
+    
+    nonStringElements = [nonStringElement.replace("]", " as usize ]") for nonStringElement in nonStringElements]
 
     printingString = ''.join(printingElements)
     formatString = ','.join(nonStringElements)
