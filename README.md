@@ -5,7 +5,7 @@
 #### antlr4 python runtime
 
 ```
-pip install antlr4
+pip install antlr4-python3-runtime
 ```
 
 #### Optional - (For Formatting Rust)
